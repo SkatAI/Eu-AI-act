@@ -44,7 +44,6 @@ class Retrieve(object):
         self.search_type = search_params.get('search_type')
         self.response_count_ = search_params.get('number_elements')
         self.temperature = search_params.get('temperature')
-        print(self.__dict__)
         # generative
 
         self.prompt_generative_context =ChatPromptTemplate.from_template(
@@ -77,7 +76,6 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
 --- Query:
 {query}''')
-
 
 
         self.llm = ChatOpenAI(temperature=self.temperature, model=self.model)
@@ -160,11 +158,6 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         # TODO: duplicated code with get_context
         prop = self.response.objects[i].properties
         # headlinize
-        # title = prop['text'].split('\n')[0].strip()
-        # title = ' - '.join([prop['title'], prop['numbering'], prop['author'] ])
-        print('---')
-        print(prop)
-        print('---')
         if prop.get('section') == 'recitals':
             location = prop.get('rec')
         if prop.get('section') == 'articles':
@@ -177,24 +170,9 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
     def format_properties(self, i):
         prop = self.response.objects[i].properties
-        # remaining_words_count = len(prop['text'].split(' ')) - 100
-        # text = ' '.join(prop['text'].split(' ')[:100])
-        # headlinize
-        # text = prop['text'].split("\n")
-        # text[0] = f"**{text[0].strip()}**"
-        # text = '\n'.join(text).replace('\n', '  \n')
         st.write(prop['text'].strip())
 
-        # url = f"  [{prop['pid']}]({prop['url']}) "
-        # authors = ', '.join(prop['authors'])
-        # if 'tags' in prop.keys():
-        #     tags = ', '.join(prop['tags'])
-        # else:
-        #     tags = ''
-        # st.caption(' - '.join([prop['source'], prop['source_type'], prop['text_type'], authors, url, tags]))
-
     def save(self):
-        # print(self.__dict__.keys())
         os.write(1,bytes("--"*20 + "\n", 'utf-8'))
         os.write(1,bytes(f"query: {self.query}\n" , 'utf-8'))
         os.write(1,bytes(f"search_type: {self.search_type}\n" , 'utf-8'))
@@ -209,12 +187,6 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
 def perform_search(query, search_type, model):
     '''
-    - vectorize query
-        - client, vectorizer etc
-        - store query
-    - near text search
-    - prompt
-    - answer generation
     '''
     retr = Retrieve(query, search_type, model)
     retr.search()
