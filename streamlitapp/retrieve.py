@@ -29,7 +29,7 @@ class Retrieve(object):
         self.authors = {'all versions': None,
             '2024 coreper':'coreper', '2022 council':'council', '2021 commission': 'commission'}
         collection_name = "AIAct_240218"
-        cluster_location = "local"
+        cluster_location = "cloud"
         self.client = connect_client(cluster_location)
         assert self.client is not None
         assert self.client.is_live()
