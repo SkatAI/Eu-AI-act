@@ -64,7 +64,7 @@ if __name__ == "__main__":
         # author
         # TODO: change to commission, council, coreper
         author = st.selectbox("Authored by", author_options,
-                index = 3 if st.session_state.get("author_key") is None else author_options.index(st.session_state.get("author_key")),
+                index = 1 if st.session_state.get("author_key") is None else author_options.index(st.session_state.get("author_key")),
                 key = "author_key",
                 help = '''
 - April 2021: The commission proposed a 1st version of the regulation in April 2021.
