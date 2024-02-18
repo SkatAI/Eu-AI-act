@@ -100,9 +100,9 @@ if __name__ == "__main__":
             search_params.update({'temperature': temperature})
 
         st.divider()
-        st.caption("[github: SkatAI/dmi2024-ai-act](https://github.com/SkatAI/dmi2024-ai-act)")
+        st.caption("[github: SkatAI/dmi2024-ai-act](https://github.com/SkatAI/Eu-AI-act)")
         st.caption("by [Université Gustave Eiffel](https://www.univ-gustave-eiffel.fr/en/)")
-        st.write(search_params)
+        # st.write(search_params)
     # ----------------------------------------------------------------------------
     # Main query input
     # ----------------------------------------------------------------------------
