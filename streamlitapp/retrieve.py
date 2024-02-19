@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import typing as t
 import tempfile
+import datetime
 # streamlit
 import streamlit as st
 
@@ -210,7 +211,8 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
                 'uuids': ','.join([str(uuid) for uuid in self.chunk_uuids]),
                 'titles': ','.join([str(uuid) for uuid in self.chunk_titles]),
                 'texts': self.context,
-            }
+            },
+            'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
     def to_bucket(self):

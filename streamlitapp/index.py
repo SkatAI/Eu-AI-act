@@ -159,5 +159,5 @@ if __name__ == "__main__":
 
         retr.log_session()
         st.divider()
-        st.write(retr.to_dict())
+        # st.write(retr.to_dict())
         retr.to_bucket()
