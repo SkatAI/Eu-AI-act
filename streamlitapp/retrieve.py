@@ -87,6 +87,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         self.context_chain   = LLMChain(llm=self.llm, prompt=self.prompt_generative_context,  output_key="answer_context", verbose=False)
         self.chunk_uuids = []
         self.chunk_titles = []
+        self.chunk_texts = []
 
         self.overall_context_chain = SequentialChain(
             chains=[self.context_chain],
@@ -155,6 +156,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
             self.chunk_titles.append(title)
             texts.append(text)
         self.context = '\n'.join(texts)
+        self.chunk_texts = texts
 
     # format
     def format_metadata(self, i):
@@ -195,6 +197,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
     def to_dict(self) -> t.Dict:
         return {
+            'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'query': self.query,
             'author': self.author,
             'search': {
@@ -210,9 +213,8 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
             'context': {
                 'uuids': ','.join([str(uuid) for uuid in self.chunk_uuids]),
                 'titles': ','.join([str(uuid) for uuid in self.chunk_titles]),
-                'texts': self.context,
+                'texts': self.chunk_texts,
             },
-            'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
     def to_bucket(self):
