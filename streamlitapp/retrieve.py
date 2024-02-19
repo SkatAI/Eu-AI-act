@@ -106,9 +106,10 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         )
 
     def search(self):
-        filters = None
+        filters = (Filter("section").equal('recitals') | (Filter("section").equal('articles') & ( Filter("line_type").equal('article')  |  Filter("line_type").equal('paragraph'))))
+        # filters = None
         if self.author is not None:
-            filters = Filter("author").equal(self.author)
+            filters = filters & Filter("author").equal(self.author)
 
         if self.search_type == "hybrid":
             self.response = self.collection.query.hybrid(
