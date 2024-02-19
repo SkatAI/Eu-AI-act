@@ -12,5 +12,4 @@ streamlit==1.30.0
 streamlit-authenticator==0.2.3
 tiktoken==0.5.2
 tqdm==4.66.1
-# spacy==3.7.2
 weaviate-client==4.4b7
