@@ -1,7 +1,7 @@
 import os, re, json, glob
 import pandas as pd
 import numpy as np
-
+import typing as t
 # streamlit
 import streamlit as st
 
@@ -19,7 +19,8 @@ from langchain.chains import LLMChain
 from langchain.chains import SequentialChain
 
 # local
-from  streamlit_weaviate_utils import *
+from streamlit_weaviate_utils import *
+from google_storage import StorageWrap
 
 class Retrieve(object):
 
@@ -77,9 +78,13 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 --- Query:
 {query}''')
 
+        self.answer_with_context = ''
+        self.answer_bare = ''
 
         self.llm = ChatOpenAI(temperature=self.temperature, model=self.model)
         self.context_chain   = LLMChain(llm=self.llm, prompt=self.prompt_generative_context,  output_key="answer_context", verbose=False)
+        self.chunk_uuids = []
+        self.chunk_titles = []
 
         self.overall_context_chain = SequentialChain(
             chains=[self.context_chain],
@@ -129,19 +134,23 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
     def get_context(self):
         texts = []
+        self.chunk_uuids = []
+        self.chunk_titles = []
         for i in range(self.response_count_):
+
             prop = self.response.objects[i].properties
+            self.chunk_uuids.append(prop.get('uuid'))
             text = "---"
             if prop.get('section') == 'recitals':
-                location = prop.get('rec')
+                title = prop.get('rec')
             if prop.get('section') == 'articles':
-                location = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
-                location = ">> ".join(location)
+                title = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
+                title = " >> ".join(title)
 
-            text += ' - '.join([location, prop.get('author') ])
+            text += ' - '.join([title, prop.get('author') ])
             text += "\n"
             text += prop.get('text')
-
+            self.chunk_titles.append(title)
             texts.append(text)
         self.context = '\n'.join(texts)
 
@@ -163,16 +172,14 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         if prop.get('section') == 'articles':
             location = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
             location = " >> ".join(location)
-
         title = ' - '.join([location, prop.get('author') ])
-
         return  f"**{title}**"
 
     def format_properties(self, i):
         prop = self.response.objects[i].properties
         st.write(prop['text'].strip())
 
-    def save(self):
+    def log_session(self):
         os.write(1,bytes("--"*20 + "\n", 'utf-8'))
         os.write(1,bytes(f"query: {self.query}\n" , 'utf-8'))
         os.write(1,bytes(f"search_type: {self.search_type}\n" , 'utf-8'))
@@ -184,13 +191,62 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         os.write(1,bytes("--"*20 + "\n\n", 'utf-8'))
         pass
 
+    def to_dict(self) -> t.Dict:
+        return {
+            'query': self.query,
+            'author': self.author,
+            'search': {
+                'search_type': self.search_type,
+                'model': self.model,
+                'response_count_': self.response_count_,
+                'temperature': self.temperature,
+            },
+            'answer': {
+                'answer_with_context': self.answer_with_context,
+                'answer_bare': self.answer_bare,
+            },
+            'context': {
+                'uuids': ','.join([str(uuid) for uuid in self.chunk_uuids]),
+                'titles': ','.join([str(uuid) for uuid in self.chunk_titles]),
+                'texts': self.context,
+            }
+        }
 
-def perform_search(query, search_type, model):
-    '''
-    '''
-    retr = Retrieve(query, search_type, model)
-    retr.search()
+    def to_bucket(self):
+        sw = StorageWrap()
+        sw.set_bucket('ragtime-ai-act')
+        json_data = self.to_dict()
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.json') as temp_file:
+            json.dump(json_data, temp_file)
+            temp_file.flush()
+            # upload
+            blob_filename = f"sessions/{temp_file.name.split('/')[-1]}"
+            blob = sw.bucket.blob(blob_filename)
+            blob.upload_from_filename(temp_file.name)
 
-    return retr
+        blobs = sw.list_blobs()
+        assert blob_filename in blobs
 
+
+if __name__ == "__main__":
+
+    import json
+    import tempfile
+    from google.cloud import storage
+    from google_storage import StorageWrap
+
+    # Your JSON data
+    json_data = {"example": "data"}
+
+    # Create a temporary file
+    sw = StorageWrap()
+    sw.set_bucket('ragtime-ai-act')
+
+    with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.json') as temp_file:
+        json.dump(json_data, temp_file)
+        temp_file.flush()
+        blob = sw.bucket.blob(f"sessions/{temp_file.name.split('/')[-1]}")
+        blob.upload_from_filename(temp_file.name)
+
+    blobs = sw.list_blobs()
 

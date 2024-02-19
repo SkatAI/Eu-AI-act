@@ -145,7 +145,6 @@ if __name__ == "__main__":
         with col2:
             st.markdown(f"<em>{retr.answer_with_context}</em>", unsafe_allow_html=True)
 
-        retr.save()
         st.header("Retrieved documents")
 
         for i in range(len(retr.response.objects)):
@@ -157,3 +156,8 @@ if __name__ == "__main__":
                     retr.format_properties(i)
                     retr.format_metadata(i)
                     st.divider()
+
+        retr.log_session()
+        st.divider()
+        st.write(retr.to_dict())
+        retr.to_bucket()
