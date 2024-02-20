@@ -149,7 +149,12 @@ if __name__ == "__main__":
         st.subheader("Retrieved documents")
 
         for i in range(len(retr.response.objects)):
-            with st.expander(retr.retrieved_title(i)[:100]):
+            try:
+                title = retr.retrieved_title(i).split('-')[-1]
+            except:
+                title = retr.retrieved_title(i)
+
+            with st.expander(title):
                 col1, col2 = st.columns([1, 15])
                 with col1:
                     st.write(f"{i+1})")
