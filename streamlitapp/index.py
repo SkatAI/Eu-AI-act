@@ -144,20 +144,20 @@ if __name__ == "__main__":
         _, col2 = st.columns([1, 15])
         with col2:
             st.markdown(f"<em>{retr.answer_with_context}</em>", unsafe_allow_html=True)
+        st.divider()
 
-        st.header("Retrieved documents")
+        st.subheader("Retrieved documents")
 
         for i in range(len(retr.response.objects)):
-            with st.expander(retr.retrieved_title(i)):
+            with st.expander(retr.retrieved_title(i)[:100]):
                 col1, col2 = st.columns([1, 15])
                 with col1:
-                    st.subheader(f"{i+1})")
+                    st.write(f"{i+1})")
                 with col2:
                     retr.format_properties(i)
                     retr.format_metadata(i)
                     st.divider()
 
         retr.log_session()
-        st.divider()
         # st.write(retr.to_dict())
         retr.to_bucket()
