@@ -31,8 +31,7 @@ class Retrieve(object):
         # collection_name = "AIActKnowledgeBase"
         self.authors = {'all versions': None,
             '2024 coreper':'coreper', '2022 council':'council', '2021 commission': 'commission'}
-        # collection_name = "AIAct_240218"
-        collection_name = "AIAct_240219"
+        collection_name = "AIAct_240220"
         cluster_location = "cloud"
         self.client = connect_client(cluster_location)
         assert self.client is not None
@@ -107,10 +106,13 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         )
 
     def search(self):
-        filters = (Filter("section").equal('recitals') | (Filter("section").equal('articles') & ( Filter("line_type").equal('article')  |  Filter("line_type").equal('paragraph'))))
+        filters = Filter("content_type").not_equal('header')
         # filters = None
         if self.author is not None:
-            filters = filters & Filter("author").equal(self.author)
+            if filters is None:
+                filters = Filter("author").equal(self.author)
+            else:
+                filters = filters & Filter("author").equal(self.author)
 
         if self.search_type == "hybrid":
             self.response = self.collection.query.hybrid(
@@ -146,16 +148,16 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
             prop = self.response.objects[i].properties
             self.chunk_uuids.append(prop.get('uuid'))
             text = "---"
-            if prop.get('section') == 'recitals':
-                title = prop.get('rec')
-            if prop.get('section') == 'articles':
-                title = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
-                title = " >> ".join(title)
+            # if prop.get('section') == 'recitals':
+            #     title = prop.get('rec')
+            # if prop.get('section') == 'articles':
+            #     title = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
+            #     title = " >> ".join(title)
 
-            text += ' - '.join([title, prop.get('author') ])
+            text += ' - '.join([prop.get('title'), prop.get('author') ])
             text += "\n"
             text += prop.get('text')
-            self.chunk_titles.append(title)
+            self.chunk_titles.append(' - '.join([prop.get('title'), prop.get('author') ]))
             texts.append(text)
         self.context = '\n'.join(texts)
         self.chunk_texts = texts
@@ -173,12 +175,12 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         # TODO: duplicated code with get_context
         prop = self.response.objects[i].properties
         # headlinize
-        if prop.get('section') == 'recitals':
-            location = prop.get('rec')
-        if prop.get('section') == 'articles':
-            location = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
-            location = " >> ".join(location)
-        title = ' - '.join([location, prop.get('author') ])
+        # if prop.get('section') == 'recitals':
+        #     location = prop.get('rec')
+        # if prop.get('section') == 'articles':
+        #     location = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
+        #     location = " >> ".join(location)
+        title = ' - '.join([prop.get('title'), prop.get('author') ])
         return  f"**{title}**"
 
     def format_properties(self, i):
