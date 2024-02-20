@@ -107,21 +107,21 @@ if __name__ == "__main__":
     # Main query input
     # ----------------------------------------------------------------------------
 
-    search_col1, search_c2 = st.columns([8,4])
-    with search_col1:
-        with st.form('search_form', clear_on_submit = False):
-            search_query = st.text_area(
-                "Your query:",
-                key="query_input",
-                height = 20,
-                help = '''Write a query, a question about the AI-act.'''
-                )
+    # search_col1, search_c2 = st.columns([8,4])
+    # with search_col1:
+    with st.form('search_form', clear_on_submit = False):
+        search_query = st.text_area(
+            "Your query:",
+            key="query_input",
+            height = 20,
+            help = '''Write a query, a question about the AI-act.'''
+            )
 
-            sc3, sc4 = st.columns([10,1])
-            with sc3:
-                search_scope = st.checkbox("Show the rough answer without context", help='''Check to generate the answer without any form of retrieval''')
-            with sc4:
-                search_button = st.form_submit_button(label="Ask")
+        sc3, sc4 = st.columns([10,1])
+        with sc3:
+            search_scope = st.checkbox("Show the answer without context", help='''Check to generate the answer without any form of retrieval''')
+        with sc4:
+            search_button = st.form_submit_button(label="Ask")
 
     # ----------------------------------------------------------------------------
     # Search results
@@ -132,6 +132,14 @@ if __name__ == "__main__":
         # retr = Retrieve(search_query, search_type, model, number_elements, temperature, author)
         retr.search()
 
+
+        st.header("Answer with retrieval")
+        retr.generate_answer_with_context()
+        _, col2 = st.columns([1, 15])
+        with col2:
+            st.markdown(f"<em>{retr.answer_with_context}</em>", unsafe_allow_html=True)
+        st.divider()
+
         if search_scope:
             st.subheader("Answer without context:")
             retr.generate_answer_bare()
@@ -139,18 +147,11 @@ if __name__ == "__main__":
             with col2:
                 st.markdown(f"<em>{retr.answer_bare}</em>", unsafe_allow_html=True)
 
-        st.subheader("Answer with retrieval")
-        retr.generate_answer_with_context()
-        _, col2 = st.columns([1, 15])
-        with col2:
-            st.markdown(f"<em>{retr.answer_with_context}</em>", unsafe_allow_html=True)
-        st.divider()
-
         st.subheader("Retrieved documents")
 
         for i in range(len(retr.response.objects)):
             try:
-                title = retr.retrieved_title(i).split('-')[-1]
+                title = ' - '.join(retr.retrieved_title(i).split('-')[-2:]).replace('**','')
             except:
                 title = retr.retrieved_title(i)
 
@@ -159,6 +160,7 @@ if __name__ == "__main__":
                 with col1:
                     st.write(f"{i+1})")
                 with col2:
+                    st.write(retr.retrieved_title(i))
                     retr.format_properties(i)
                     retr.format_metadata(i)
                     st.divider()
