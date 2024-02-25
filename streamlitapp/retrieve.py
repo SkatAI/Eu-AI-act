@@ -25,6 +25,8 @@ from langchain.chains import SequentialChain
 from streamlit_weaviate_utils import *
 from google_storage import StorageWrap
 
+from sqlalchemy import text as sqlalchemy_text
+
 
 class Retrieve(object):
     # def __init__(self, query, search_type, model, number_elements, temperature, author):
@@ -36,7 +38,7 @@ class Retrieve(object):
             "2022 council": "council",
             "2021 commission": "commission",
         }
-        collection_name = "AIAct_240220"
+        self.collection_name = "AIAct_240220"
         cluster_location = "cloud"
         self.client = connect_client(cluster_location)
         assert self.client is not None
@@ -44,7 +46,7 @@ class Retrieve(object):
 
         # retrieval
         self.vectorizer = which_vectorizer("OpenAI")
-        self.collection = self.client.collections.get(collection_name)
+        self.collection = self.client.collections.get(self.collection_name)
         # TODO safeguard query
         self.query = query
         self.author = self.authors.get(search_params.get("author"))
@@ -146,6 +148,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
                 limit=self.response_count_,
                 return_metadata=["distance", "certainty"],
             )
+
         self.get_context()
 
     def generate_answer_with_context(self):
@@ -164,11 +167,6 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
             prop = self.response.objects[i].properties
             self.chunk_uuids.append(prop.get("uuid"))
             text = "---"
-            # if prop.get('section') == 'recitals':
-            #     title = prop.get('rec')
-            # if prop.get('section') == 'articles':
-            #     title = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
-            #     title = " >> ".join(title)
 
             text += " - ".join([prop.get("title"), prop.get("author")])
             text += "\n"
@@ -190,12 +188,6 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
     def retrieved_title(self, i):
         # TODO: duplicated code with get_context
         prop = self.response.objects[i].properties
-        # headlinize
-        # if prop.get('section') == 'recitals':
-        #     location = prop.get('rec')
-        # if prop.get('section') == 'articles':
-        #     location = [prop.get(lct) for lct in ['ttl', 'art', 'par'] if prop.get(lct) is not None ]
-        #     location = " >> ".join(location)
         title = " - ".join([prop.get("title"), prop.get("author")])
         return f"**{title}**"
 
@@ -225,14 +217,19 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
                 "model": self.model,
                 "response_count_": self.response_count_,
                 "temperature": self.temperature,
+                "collection": self.collection_name,
+            },
+            "prompts": {
+                "prompt_generative_context": self.prompt_generative_context,
+                "prompt_generative_bare": self.prompt_generative_bare,
             },
             "answer": {
                 "answer_with_context": self.answer_with_context,
                 "answer_bare": self.answer_bare,
             },
             "context": {
-                "uuids": ",".join([str(uuid) for uuid in self.chunk_uuids]),
-                "titles": ",".join([str(uuid) for uuid in self.chunk_titles]),
+                "uuids": [str(uuid) for uuid in self.chunk_uuids],
+                "titles": self.chunk_titles,
                 "texts": self.chunk_texts,
             },
         }
@@ -251,6 +248,75 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
         blobs = sw.list_blobs()
         assert blob_filename in blobs
+
+    def to_db(self, conn):
+        def sanitize(txt):
+            rgx = r"\(|\)|;|drop|tables|table|grant|1\=1"
+            if re.search(rgx, txt):
+                return txt[::-1]
+            else:
+                return txt
+
+        def build_query(item):
+            query = sqlalchemy_text(
+                f"""
+insert into live_qa
+(query, answer, search, filters, context, answer_type, prompt)
+values
+(
+    $${item['query']}$$,
+    $${item['answer']}$$,
+    $${item['search']}$$,
+    $${item['filters']}$$,
+    $${item['context']}$$,
+    $${item['answer_type']}$$,
+    $${item['prompt']}$$
+);
+"""
+            )
+            return query
+
+        data = self.to_dict()
+
+        data["query"] = sanitize(data.get("query"))
+        data["context"] = json.dumps(data.get("context"))
+        data["search"] = json.dumps(data.get("search"))
+        doc_source = ""
+        if data.get("author") is not None:
+            doc_source = data.get("author")
+
+        data["filters"] = json.dumps({"document": doc_source})
+
+        item = data.copy()
+        item.update(
+            {
+                "answer": item["answer"]["answer_with_context"],
+                "answer_type": "contextual",
+                "prompt": item["prompts"]["prompt_generative_context"],
+            }
+        )
+        query = build_query(item)
+        print("--- query")
+        print(query)
+        print("--- /query")
+
+        with conn.session as s:
+            s.execute(query)
+            s.commit()
+
+        if data["answer"]["answer_bare"] != "":
+            item = data.copy()
+            item.update(
+                {
+                    "answer": data["answer"]["answer_bare"],
+                    "answer_type": "no-context",
+                    "prompt": item["prompts"]["prompt_generative_bare"],
+                }
+            )
+            query = build_query(item)
+            with conn.session as s:
+                s.execute(query)
+                s.commit()
 
 
 if __name__ == "__main__":

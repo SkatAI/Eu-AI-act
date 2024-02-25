@@ -25,6 +25,7 @@ from langchain.chains import SequentialChain
 # local
 from streamlit_weaviate_utils import *
 from retrieve import Retrieve
+from db_utils import Database
 
 import yaml
 from yaml.loader import SafeLoader
@@ -215,4 +216,12 @@ if __name__ == "__main__":
 
         retr.log_session()
         # st.write(retr.to_dict())
-        retr.to_bucket()
+
+        # df = conn.query('SELECT count(*) FROM live_qa;', ttl="0")
+        # st.write(df)
+
+        conn = st.connection("postgresql", type="sql")
+        retr.to_db(conn)
+
+        # df = conn.query('SELECT count(*) FROM live_qa;', ttl="0")
+        # st.write(df)

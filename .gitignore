@@ -1,6 +1,6 @@
 .vscode
 
-secrets/
+
 secrets.toml
 
 __init__.py
