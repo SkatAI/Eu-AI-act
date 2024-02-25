@@ -223,5 +223,5 @@ if __name__ == "__main__":
         conn = st.connection("postgresql", type="sql")
         retr.to_db(conn)
 
-        # df = conn.query('SELECT count(*) FROM live_qa;', ttl="0")
-        # st.write(df)
+        df = conn.query('SELECT count(*) FROM live_qa;', ttl="0")
+        st.write(df)
