@@ -150,8 +150,7 @@ if __name__ == "__main__":
     # ----------------------------------------------------------------------------
 
     st.header("[eu-ai-act.streamlit.app](https://eu-ai-act.streamlit.app)")
-    # search_col1, search_c2 = st.columns([8,4])
-    # with search_col1:
+
     with st.form("search_form", clear_on_submit=False):
         search_query = st.text_area(
             "Your query:",

@@ -14,12 +14,14 @@ from weaviate.classes import Filter
 # open AI
 from openai import OpenAI
 
-# LangChain
+# LangChain / Langsmith
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 from langchain.chains import SequentialChain
+
+from langsmith.run_helpers import traceable
 
 # local
 from streamlit_weaviate_utils import *
@@ -27,9 +29,11 @@ from google_storage import StorageWrap
 
 from sqlalchemy import text as sqlalchemy_text
 
+# TODO: refactor into
+# - retrieve, LLM, export
 
 class Retrieve(object):
-    # def __init__(self, query, search_type, model, number_elements, temperature, author):
+
     def __init__(self, query, search_params):
         # collection_name = "AIActKnowledgeBase"
         self.authors = {
@@ -47,15 +51,15 @@ class Retrieve(object):
         # retrieval
         self.vectorizer = which_vectorizer("OpenAI")
         self.collection = self.client.collections.get(self.collection_name)
-        # TODO safeguard query
+
         self.query = query
         self.author = self.authors.get(search_params.get("author"))
         self.model = search_params.get("model")
         self.search_type = search_params.get("search_type")
         self.response_count_ = search_params.get("number_elements")
         self.temperature = search_params.get("temperature")
-        # generative
 
+        # generative
         self.prompt_generative_context = ChatPromptTemplate.from_template(
             """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
 Your goal is to make it easier for people to understand the AI-Act from the UE.
@@ -89,9 +93,14 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 {query}"""
         )
 
+        # output
         self.answer_with_context = ""
         self.answer_bare = ""
+        self.chunk_uuids = []
+        self.chunk_titles = []
+        self.chunk_texts = []
 
+        # Gen
         self.llm = ChatOpenAI(temperature=self.temperature, model=self.model)
         self.context_chain = LLMChain(
             llm=self.llm,
@@ -99,31 +108,25 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
             output_key="answer_context",
             verbose=False,
         )
-        self.chunk_uuids = []
-        self.chunk_titles = []
-        self.chunk_texts = []
-
         self.overall_context_chain = SequentialChain(
             chains=[self.context_chain],
             input_variables=["context", "query"],
             output_variables=["answer_context"],
             verbose=True,
         )
-
         self.bare_chain = LLMChain(
             llm=self.llm,
             prompt=self.prompt_generative_bare,
             output_key="answer_bare",
             verbose=False,
         )
-
         self.overall_bare_chain = SequentialChain(
             chains=[self.bare_chain],
             input_variables=["query"],
             output_variables=["answer_bare"],
             verbose=True,
         )
-
+    # retrieve
     def search(self):
         filters = Filter("content_type").not_equal("header")
         # filters = None
@@ -151,14 +154,20 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
         self.get_context()
 
+    # Gen
+    @traceable(run_type="llm")
     def generate_answer_with_context(self):
         self.response_context = self.overall_context_chain({"context": self.context, "query": self.query})
         self.answer_with_context = self.response_context["answer_context"]
 
+    # Gen
+    @traceable(run_type="llm")
     def generate_answer_bare(self):
         self.response_bare = self.overall_bare_chain({"query": self.query})
         self.answer_bare = self.response_bare["answer_bare"]
 
+    # retrieve
+    @traceable(run_type="chain")
     def get_context(self):
         texts = []
         self.chunk_uuids = []
@@ -176,27 +185,30 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         self.context = "\n".join(texts)
         self.chunk_texts = texts
 
-    # format
+    # export
     def format_metadata(self, i):
         metadata_str = []
         if self.search_type == "hybrid":
             metadata_str = f"**score**: {np.round(self.response.objects[i].metadata.score, 4)} "
         elif self.search_type == "near_text":
             metadata_str = f"distance: {np.round(self.response.objects[i].metadata.distance, 4)} certainty: {np.round(self.response.objects[i].metadata.certainty, 4)} "
-        st.write(metadata_str)
 
+    # export
     def retrieved_title(self, i):
-        # TODO: duplicated code with get_context
         prop = self.response.objects[i].properties
         title = " - ".join([prop.get("title"), prop.get("author")])
         return f"**{title}**"
 
+    # export
     def format_properties(self, i):
         prop = self.response.objects[i].properties
         st.write(prop["text"].strip())
 
+    # export
     def log_session(self):
+        stamp_ = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         os.write(1, bytes("--" * 20 + "\n", "utf-8"))
+        os.write(1, bytes(f"when: {stamp_}\n", "utf-8"))
         os.write(1, bytes(f"query: {self.query}\n", "utf-8"))
         os.write(1, bytes(f"search_type: {self.search_type}\n", "utf-8"))
         os.write(1, bytes(f"model: {self.model}\n", "utf-8"))
@@ -207,6 +219,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         os.write(1, bytes("--" * 20 + "\n\n", "utf-8"))
         pass
 
+    # export
     def to_dict(self) -> t.Dict:
         return {
             "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -234,6 +247,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
             },
         }
 
+    # export
     def to_bucket(self):
         sw = StorageWrap()
         sw.set_bucket("ragtime-ai-act")
@@ -249,6 +263,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         blobs = sw.list_blobs()
         assert blob_filename in blobs
 
+    # export
     def to_db(self, conn):
         def sanitize(txt):
             rgx = r"\(|\)|;|drop|tables|table|grant|1\=1"
@@ -296,9 +311,6 @@ values
             }
         )
         query = build_query(item)
-        print("--- query")
-        print(query)
-        print("--- /query")
 
         with conn.session as s:
             s.execute(query)
