@@ -167,7 +167,6 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         self.answer_bare = self.response_bare["answer_bare"]
 
     # retrieve
-    @traceable(run_type="chain")
     def get_context(self):
         texts = []
         self.chunk_uuids = []
