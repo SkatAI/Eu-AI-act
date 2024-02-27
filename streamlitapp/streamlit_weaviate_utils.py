@@ -6,10 +6,8 @@ import numpy as np
 import weaviate
 import weaviate.classes as wvc
 
-
 def count_collection(collection):
     return collection.aggregate.over_all(total_count=True).total_count
-
 
 def list_collections(client):
     for collection_name in client.collections.list_all().keys():
@@ -20,7 +18,6 @@ def list_collections(client):
         collection = client.collections.get(collection_name)
         count_ = collection.aggregate.over_all(total_count=True).total_count
         print(f"* {collection_name} [{count_}]: \n\t {props}")
-
 
 def which_text_splitter(cfg):
     # ------------------------------------

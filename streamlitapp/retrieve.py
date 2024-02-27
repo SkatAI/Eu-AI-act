@@ -20,7 +20,6 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
 from langchain.chains import SequentialChain
-
 from langsmith.run_helpers import traceable
 
 # local
@@ -28,9 +27,6 @@ from streamlit_weaviate_utils import *
 from google_storage import StorageWrap
 
 from sqlalchemy import text as sqlalchemy_text
-
-# TODO: refactor into
-# - retrieve, LLM, export
 
 class Retrieve(object):
 
@@ -328,6 +324,9 @@ values
             with conn.session as s:
                 s.execute(query)
                 s.commit()
+
+    def client_close(self):
+        self.client.close()
 
 
 if __name__ == "__main__":

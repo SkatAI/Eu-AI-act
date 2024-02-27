@@ -213,3 +213,4 @@ if __name__ == "__main__":
         conn = st.connection("postgresql", type="sql")
         retr.to_db(conn)
 
+        retr.client_close()
