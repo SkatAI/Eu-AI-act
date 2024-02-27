@@ -23,7 +23,12 @@ from langchain.chains import SequentialChain
 from langsmith.run_helpers import traceable
 
 # local
-from streamlit_weaviate_utils import *
+from streamlit_weaviate_utils import (
+    count_collection,
+    list_collections,
+    connect_client,
+    which_vectorizer,
+)
 from google_storage import StorageWrap
 
 from sqlalchemy import text as sqlalchemy_text
