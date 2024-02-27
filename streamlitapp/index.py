@@ -22,14 +22,6 @@ from langchain.chains import LLMChain
 
 from langchain.chains import SequentialChain
 
-# local
-# from streamlit_weaviate_utils import (
-    # count_collection,
-    # list_collections,
-    # connect_client,
-    # which_vectorizer,
-# )
-
 from retrieve import Retrieve
 
 import warnings
