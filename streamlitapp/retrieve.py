@@ -36,12 +36,19 @@ from sqlalchemy import text as sqlalchemy_text
 class Retrieve(object):
 
     def __init__(self, query, search_params):
-        # collection_name = "AIActKnowledgeBase"
+
         self.authors = {
             "all versions": None,
             "2024 coreper": "coreper",
             "2022 council": "council",
             "2021 commission": "commission",
+            "ECR": "ECR",
+            "EPP":"EPP",
+            "GUE/NGL":"GUE/NGL",
+            "Greens/EFA": "Greens/EFA",
+            "ID":"ID",
+            "Renew":"Renew",
+            "S&D":"S&D",
         }
         self.collection_name = "AIAct_240220"
         cluster_location = "cloud"

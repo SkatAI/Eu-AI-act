@@ -37,26 +37,24 @@ if __name__ == "__main__":
         menu_items={"About": "Knowledge Base on EU AI-act"},
     )
 
-    model_options = ["gpt-3.5-turbo-1106", "gpt-4-1106-preview"]
+    model_options = ["gpt-3.5-turbo-0125", "gpt-4-turbo-preview"]
+    # "CULT",
+    # "IMCO-LIBE",
+    # "ITRE",
+    # "JURI",
+    # "TRAN",
+    # author_options = ["all versions", "2024 coreper", "2022 council", "2021 commission"]
     author_options = [
-        "--",
-        "COMMISSION",
-        "COUNCIL",
-        "PARLIAMENT",
-        "CULT",
+        "all versions",
+        "2024 coreper", "2022 council", "2021 commission"
         "ECR",
         "EPP",
-        "IMCO-LIBE",
-        "ITRE",
-        "JURI",
-        "TRAN",
         "GUE/NGL",
         "Greens/EFA",
         "ID",
         "Renew",
         "S&D",
     ]
-    author_options = ["all versions", "2024 coreper", "2022 council", "2021 commission"]
 
     search_params = {
         "model": model_options[0],
@@ -170,26 +168,24 @@ if __name__ == "__main__":
     # Search results
     # ----------------------------------------------------------------------------
     if search_button:
-        # TODO: nasty call, dict much?
         retr = Retrieve(search_query, search_params)
-        # retr = Retrieve(search_query, search_type, model, number_elements, temperature, author)
         retr.search()
 
-        st.header("Answer with retrieval")
+        st.header(":blue[Answer:]")
         retr.generate_answer_with_context()
         _, col2 = st.columns([1, 15])
         with col2:
-            st.markdown(f"<em>{retr.answer_with_context}</em>", unsafe_allow_html=True)
+            st.markdown(f"{retr.answer_with_context}", unsafe_allow_html=True)
         st.divider()
 
         if search_scope:
-            st.subheader("Answer without context:")
             retr.generate_answer_bare()
+            st.subheader(":magenta[Answer without context:]")
             _, col2 = st.columns([1, 15])
             with col2:
-                st.markdown(f"<em>{retr.answer_bare}</em>", unsafe_allow_html=True)
+                st.markdown(f"{retr.answer_bare}", unsafe_allow_html=True)
 
-        st.subheader("Retrieved documents")
+        st.subheader(":gray[Retrieved documents]")
 
         for i in range(len(retr.response.objects)):
             try:
@@ -197,15 +193,14 @@ if __name__ == "__main__":
             except:
                 title = retr.retrieved_title(i)
 
-            with st.expander(title):
-                col1, col2 = st.columns([1, 15])
-                with col1:
-                    st.write(f"{i+1})")
-                with col2:
-                    st.write(retr.retrieved_title(i))
-                    retr.format_properties(i)
-                    retr.format_metadata(i)
-                    st.divider()
+            # col1, col2 = st.columns([1, 20])
+            # with col1:
+            #     st.write(f"{i+1})")
+            # with col2:
+            with st.expander(f"{i+1}) :gray[{title}]"):
+                retr.format_properties(i)
+                retr.format_metadata(i)
+                # st.divider()
 
         retr.log_session()
         conn = st.connection("postgresql", type="sql")
