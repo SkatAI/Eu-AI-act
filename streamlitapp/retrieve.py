@@ -36,9 +36,10 @@ from sqlalchemy import text as sqlalchemy_text
 class Retrieve(object):
 
     def __init__(self, query, search_params):
-
+        print("search_params", search_params)
         self.authors = {
             "all versions": None,
+            "all amendments": None,
             "2024 coreper": "coreper",
             "2022 council": "council",
             "2021 commission": "commission",
@@ -66,6 +67,7 @@ class Retrieve(object):
         self.search_type = search_params.get("search_type")
         self.response_count_ = search_params.get("number_elements")
         self.temperature = search_params.get("temperature")
+        self.sections = search_params.get("includes")
 
         # generative
         self.prompt_generative_context = ChatPromptTemplate.from_template(
@@ -137,12 +139,17 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
     # retrieve
     def search(self):
         filters = Filter("content_type").not_equal("header")
-        # filters = None
         if self.author is not None:
             if filters is None:
                 filters = Filter("author").equal(self.author)
             else:
                 filters = filters & Filter("author").equal(self.author)
+
+        section_filters = [key for key, val in self.sections.items() if val ]
+        print("section_filters:",section_filters)
+
+        filters = filters & Filter("section").contains_any(section_filters)
+        # filters = filters & Filter("section").contains_any(['amendments', 'recitals', 'articles'])
 
         if self.search_type == "hybrid":
             self.response = self.collection.query.hybrid(
@@ -179,18 +186,25 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         texts = []
         self.chunk_uuids = []
         self.chunk_titles = []
-        for i in range(self.response_count_):
-            prop = self.response.objects[i].properties
-            self.chunk_uuids.append(prop.get("uuid"))
-            text = "---"
-
-            text += " - ".join([prop.get("title"), prop.get("author")])
-            text += "\n"
-            text += prop.get("text")
-            self.chunk_titles.append(" - ".join([prop.get("title"), prop.get("author")]))
-            texts.append(text)
-        self.context = "\n".join(texts)
-        self.chunk_texts = texts
+        print(f"self.response_count_ {self.response_count_}")
+        # print(f"self.response {self.response}")
+        print(f"len self.response {len(self.response.objects)}")
+        if len(self.response.objects) == 0:
+            st.write("no relevant document found")
+            self.context = ""
+            self.chunk_texts = []
+        else:
+            for i in range(min([self.response_count_, len(self.response.objects)])):
+                prop = self.response.objects[i].properties
+                self.chunk_uuids.append(prop.get("uuid"))
+                text = "---"
+                text += " - ".join([prop.get("title"), prop.get("author")])
+                text += "\n"
+                text += prop.get("text")
+                self.chunk_titles.append(" - ".join([prop.get("title"), prop.get("author")]))
+                texts.append(text)
+            self.context = "\n".join(texts)
+            self.chunk_texts = texts
 
     # export
     def format_metadata(self, i):

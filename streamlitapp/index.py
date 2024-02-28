@@ -44,9 +44,12 @@ if __name__ == "__main__":
     # "JURI",
     # "TRAN",
     # author_options = ["all versions", "2024 coreper", "2022 council", "2021 commission"]
-    author_options = [
-        "all versions",
-        "2024 coreper", "2022 council", "2021 commission"
+    author_options_docs = [
+        "all documents",
+        "2024 coreper", "2022 council", "2021 commission"]
+
+    author_options_amendments = [
+        "all amendments",
         "ECR",
         "EPP",
         "GUE/NGL",
@@ -55,10 +58,11 @@ if __name__ == "__main__":
         "Renew",
         "S&D",
     ]
-
+    includes = {'recitals': True, 'articles': True, 'annex': True, 'amendments': False}
     search_params = {
         "model": model_options[0],
-        "author": author_options[1],
+        "author": author_options_docs[1],
+        "includes": includes,
     }
 
     # ----------------------------------------------------------------------------
@@ -78,23 +82,61 @@ if __name__ == "__main__":
 - gpt-3.5 is a faster and more concise model;
 - gpt-4 has more recent knowledge that it can use in its answers""",
         )
-
         search_params.update({"model": model})
-        # author
-        # TODO: change to commission, council, coreper
-        author = st.selectbox(
-            "Authored by",
-            author_options,
-            index=1
-            if st.session_state.get("author_key") is None
-            else author_options.index(st.session_state.get("author_key")),
-            key="author_key",
-            help="""
-- April 2021: The commission proposed a 1st version of the regulation in April 2021.
-- April 2022: The council then published a revised version in April 2022.
-- February 2024: The Coreper version represents the latest draft agreed after the Trilogue negocations (Dec 23).""",
+
+        # sections to include
+
+        includes['recitals'] = st.checkbox(
+            'Recitals',
+            value = includes['recitals'] if st.session_state.get(f"key_incl_recitals") is None else st.session_state.get(f"key_incl_recitals"),
+            key="key_incl_recitals"
         )
-        search_params.update({"author": author})
+        includes['articles'] = st.checkbox(
+            'Regulation',
+            value =  includes['articles'] if st.session_state.get(f"key_incl_articles") is None else st.session_state.get(f"key_incl_articles"),
+            key="key_incl_articles"
+        )
+        includes['annex'] = st.checkbox(
+            'annexes'.capitalize(),
+            value =  includes['annex'] if st.session_state.get(f"key_incl_annex") is None else st.session_state.get(f"key_incl_annex"),
+            key="key_incl_annex"
+        )
+        includes['amendments'] = st.checkbox(
+            'amendments'.capitalize(),
+            value =  includes['amendments'] if st.session_state.get(f"key_incl_amendments") is None else st.session_state.get(f"key_incl_amendments"),
+            key="key_incl_amendments"
+        )
+        search_params.update({"includes": includes})
+
+        # author
+        if (includes['recitals'] | includes['articles'] | includes['annex'] ) & includes['amendments']:
+            index=1
+            author_options = author_options_docs + author_options_amendments
+        elif includes['amendments']  :
+            index=0
+            author_options = author_options_amendments
+        elif  (includes['recitals'] | includes['articles'] | includes['annex'] ) :
+            index=1
+            author_options = author_options_docs
+        else:
+            author_options = None
+
+        if author_options is not None:
+            if (st.session_state.get("author_key") is not None):
+                if st.session_state.get("author_key") in author_options:
+                    index=  author_options.index(st.session_state.get("author_key"))
+
+            author = st.selectbox(
+                "Authored by",
+                author_options,
+                index=index,
+                key="author_key",
+                help="""
+    - April 2021: The commission proposed a 1st version of the regulation in April 2021.
+    - April 2022: The council then published a revised version in April 2022.
+    - February 2024: The Coreper version represents the latest draft agreed after the Trilogue negocations (Dec 23).""",
+            )
+            search_params.update({"author": author})
 
         # advanced
         with st.expander("Advanced settings"):
@@ -158,7 +200,7 @@ if __name__ == "__main__":
         sc3, sc4 = st.columns([10, 1])
         with sc3:
             search_scope = st.checkbox(
-                "Show the answer without context",
+                "Also generate an answer without context",
                 help="""Check to generate the answer without any form of retrieval""",
             )
         with sc4:
@@ -193,14 +235,9 @@ if __name__ == "__main__":
             except:
                 title = retr.retrieved_title(i)
 
-            # col1, col2 = st.columns([1, 20])
-            # with col1:
-            #     st.write(f"{i+1})")
-            # with col2:
             with st.expander(f"{i+1}) :gray[{title}]"):
                 retr.format_properties(i)
                 retr.format_metadata(i)
-                # st.divider()
 
         retr.log_session()
         conn = st.connection("postgresql", type="sql")
