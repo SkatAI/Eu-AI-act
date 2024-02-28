@@ -71,18 +71,6 @@ if __name__ == "__main__":
     with st.sidebar:
         st.header(":orange[EU AI-Act Explorer]")
 
-        model = st.selectbox(
-            "Generative model",
-            model_options,
-            index=0
-            if st.session_state.get("model_key") is None
-            else model_options.index(st.session_state.get("model_key")),
-            key="model_key",
-            help="""
-- gpt-3.5 is a faster and more concise model;
-- gpt-4 has more recent knowledge that it can use in its answers""",
-        )
-        search_params.update({"model": model})
 
         # sections to include
 
@@ -140,6 +128,19 @@ if __name__ == "__main__":
 
         # advanced
         with st.expander("Advanced settings"):
+            model = st.selectbox(
+                "Generative model",
+                model_options,
+                index=0
+                if st.session_state.get("model_key") is None
+                else model_options.index(st.session_state.get("model_key")),
+                key="model_key",
+                help="""
+    - gpt-3.5 is a faster and more concise model;
+    - gpt-4 has more recent knowledge that it can use in its answers""",
+            )
+            search_params.update({"model": model})
+
             search_type_options = ["hybrid", "near_text"]
             search_type = st.selectbox(
                 "Search type",
