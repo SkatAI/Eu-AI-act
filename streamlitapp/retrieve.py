@@ -1,4 +1,4 @@
-import os, re, json, glob
+import os, re, json
 import pandas as pd
 import numpy as np
 import typing as t
@@ -24,14 +24,77 @@ from langsmith.run_helpers import traceable
 
 # local
 from streamlit_weaviate_utils import (
-    count_collection,
-    list_collections,
     connect_client,
     which_vectorizer,
 )
 from google_storage import StorageWrap
 
 from sqlalchemy import text as sqlalchemy_text
+
+class Prompts(object):
+    prompt_generative_context = ChatPromptTemplate.from_template(
+            """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
+Your goal is to make it easier for people to understand the AI-Act from the UE.
+
+You are given a query and context information.
+Your specific task is to answer the query based on the context information.
+
+# make sure:
+- If the context does not provide an answer to the query, use your global knowledge to write an answer.
+- If the context is not related to the query, clearly state that the context does not provide information with regard to the query.
+- Your answer must be short and concise.
+- Important: if you don't have the necessary information, say so clearly. Do not try to imagine an answer
+
+--- Context:
+{context}
+--- Query:
+{query}"""
+        )
+
+    prompt_generative_bare = ChatPromptTemplate.from_template(
+            """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
+Your goal is to make it easier for people to understand the AI-Act from the UE.
+
+# make sure to:
+- clearly state if you can't find the answer to the query. Do not try to invent an answer.
+- Focus on the differences in the text between the European union entities: commission, council, parliament as well as the political groups and committees.
+- Your answer must be short and concise. One line if possible
+- Do not try to imagine a fake answer if you don't have the necessary information
+
+--- Query:
+{query}"""
+        )
+
+
+class Generate(object):
+    def __init__(self, model, temperature:float = 0.0 ) -> None:
+        self.model = model
+        self.temperature = temperature
+        llm = ChatOpenAI(model=model, temperature =temperature)
+        context_chain = LLMChain(
+            llm=llm,
+            prompt=Prompts.prompt_generative_context,
+            output_key="answer_context",
+            verbose=False,
+        )
+        self.overall_context_chain = SequentialChain(
+            chains=[context_chain],
+            input_variables=["context", "query"],
+            output_variables=["answer_context"],
+            verbose=True,
+        )
+        bare_chain = LLMChain(
+            llm=llm,
+            prompt=Prompts.prompt_generative_bare,
+            output_key="answer_bare",
+            verbose=False,
+        )
+        self.overall_bare_chain = SequentialChain(
+            chains=[bare_chain],
+            input_variables=["query"],
+            output_variables=["answer_bare"],
+            verbose=True,
+        )
 
 class Retrieve(object):
 
@@ -63,46 +126,12 @@ class Retrieve(object):
 
         self.query = query
         self.author = self.authors.get(search_params.get("author"))
-        self.model = search_params.get("model")
         self.search_type = search_params.get("search_type")
         self.response_count_ = search_params.get("number_elements")
-        self.temperature = search_params.get("temperature")
         self.sections = search_params.get("includes")
 
-        # generative
-        self.prompt_generative_context = ChatPromptTemplate.from_template(
-            """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
-Your goal is to make it easier for people to understand the AI-Act from the UE.
-
-You are given a query and context information.
-Your specific task is to answer the query based on the context information.
-
-# make sure:
-- If the context does not provide an answer to the query, use your global knowledge to write an answer.
-- If the context is not related to the query, clearly state that the context does not provide information with regard to the query.
-- Your answer must be short and concise.
-- Important: if you don't have the necessary information, say so clearly. Do not try to imagine an answer
-
---- Context:
-{context}
---- Query:
-{query}"""
-        )
-
-        self.prompt_generative_bare = ChatPromptTemplate.from_template(
-            """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
-Your goal is to make it easier for people to understand the AI-Act from the UE.
-
-# make sure to:
-- clearly state if you can't find the answer to the query. Do not try to invent an answer.
-- Focus on the differences in the text between the European union entities: commission, council, parliament as well as the political groups and committees.
-- Your answer must be short and concise. One line if possible
-- Do not try to imagine a fake answer if you don't have the necessary information
-
---- Query:
-{query}"""
-        )
-
+        self.gen = Generate(search_params.get("model"), search_params.get("temperature"))
+        self.build_filters()
         # output
         self.answer_with_context = ""
         self.answer_bare = ""
@@ -110,34 +139,7 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         self.chunk_titles = []
         self.chunk_texts = []
 
-        # Gen
-        self.llm = ChatOpenAI(temperature=self.temperature, model=self.model)
-        self.context_chain = LLMChain(
-            llm=self.llm,
-            prompt=self.prompt_generative_context,
-            output_key="answer_context",
-            verbose=False,
-        )
-        self.overall_context_chain = SequentialChain(
-            chains=[self.context_chain],
-            input_variables=["context", "query"],
-            output_variables=["answer_context"],
-            verbose=True,
-        )
-        self.bare_chain = LLMChain(
-            llm=self.llm,
-            prompt=self.prompt_generative_bare,
-            output_key="answer_bare",
-            verbose=False,
-        )
-        self.overall_bare_chain = SequentialChain(
-            chains=[self.bare_chain],
-            input_variables=["query"],
-            output_variables=["answer_bare"],
-            verbose=True,
-        )
-    # retrieve
-    def search(self):
+    def build_filters(self):
         filters = Filter("content_type").not_equal("header")
         if self.author is not None:
             if filters is None:
@@ -146,23 +148,22 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
                 filters = filters & Filter("author").equal(self.author)
 
         section_filters = [key for key, val in self.sections.items() if val ]
-        print("section_filters:",section_filters)
+        self.filters = filters & Filter("section").contains_any(section_filters)
 
-        filters = filters & Filter("section").contains_any(section_filters)
-        # filters = filters & Filter("section").contains_any(['amendments', 'recitals', 'articles'])
-
+    # retrieve
+    def search(self):
         if self.search_type == "hybrid":
             self.response = self.collection.query.hybrid(
-                query=self.query,
-                query_properties=["text"],
-                filters=filters,
-                limit=self.response_count_,
-                return_metadata=["score", "explain_score", "is_consistent"],
+                query = self.query,
+                query_properties = ["title","author","text"],
+                filters = self.filters,
+                limit = self.response_count_,
+                return_metadata = ["score", "explain_score", "is_consistent"],
             )
         elif self.search_type == "near_text":
             self.response = self.collection.query.near_text(
                 query=self.query,
-                filters=filters,
+                filters=self.filters,
                 limit=self.response_count_,
                 return_metadata=["distance", "certainty"],
             )
@@ -172,13 +173,13 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
     # Gen
     @traceable(run_type="llm")
     def generate_answer_with_context(self):
-        self.response_context = self.overall_context_chain({"context": self.context, "query": self.query})
+        self.response_context = self.gen.overall_context_chain({"context": self.context, "query": self.query})
         self.answer_with_context = self.response_context["answer_context"]
 
     # Gen
     @traceable(run_type="llm")
     def generate_answer_bare(self):
-        self.response_bare = self.overall_bare_chain({"query": self.query})
+        self.response_bare = self.gen.overall_bare_chain({"query": self.query})
         self.answer_bare = self.response_bare["answer_bare"]
 
     # retrieve
@@ -232,9 +233,9 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
         os.write(1, bytes(f"when: {stamp_}\n", "utf-8"))
         os.write(1, bytes(f"query: {self.query}\n", "utf-8"))
         os.write(1, bytes(f"search_type: {self.search_type}\n", "utf-8"))
-        os.write(1, bytes(f"model: {self.model}\n", "utf-8"))
+        os.write(1, bytes(f"model: {self.gen.model}\n", "utf-8"))
         os.write(1, bytes(f"response_count_: {self.response_count_}\n", "utf-8"))
-        os.write(1, bytes(f"temperature: {self.temperature}\n", "utf-8"))
+        os.write(1, bytes(f"temperature: {self.gen.temperature}\n", "utf-8"))
         os.write(1, bytes(f"author: {self.author}\n", "utf-8"))
         os.write(1, bytes(f"answer with context:\n {self.answer_with_context}\n", "utf-8"))
         os.write(1, bytes("--" * 20 + "\n\n", "utf-8"))
@@ -248,14 +249,14 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
             "author": self.author,
             "search": {
                 "search_type": self.search_type,
-                "model": self.model,
+                "model": self.gen.model,
                 "response_count_": self.response_count_,
-                "temperature": self.temperature,
+                "temperature": self.gen.temperature,
                 "collection": self.collection_name,
             },
             "prompts": {
-                "prompt_generative_context": self.prompt_generative_context,
-                "prompt_generative_bare": self.prompt_generative_bare,
+                "prompt_generative_context": Prompts.prompt_generative_context,
+                "prompt_generative_bare": Prompts.prompt_generative_bare,
             },
             "answer": {
                 "answer_with_context": self.answer_with_context,
