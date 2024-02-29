@@ -96,10 +96,24 @@ class Generate(object):
             verbose=True,
         )
 
+    # Gen
+    @traceable(run_type="llm")
+    def generate_answer_with_context(self, context, query):
+        response_context = self.overall_context_chain({"context": context, "query": query})
+        return response_context["answer_context"]
+
+    # Gen
+    @traceable(run_type="llm")
+    def generate_answer_bare(self, query):
+        response_bare = self.overall_bare_chain({"query": query})
+        self.answer_bare = response_bare["answer_bare"]
+        return response_bare["answer_bare"]
+
+
+
 class Retrieve(object):
 
     def __init__(self, query, search_params):
-        print("search_params", search_params)
         self.authors = {
             "all versions": None,
             "all amendments": None,
@@ -170,26 +184,11 @@ class Retrieve(object):
 
         self.get_context()
 
-    # Gen
-    @traceable(run_type="llm")
-    def generate_answer_with_context(self):
-        self.response_context = self.gen.overall_context_chain({"context": self.context, "query": self.query})
-        self.answer_with_context = self.response_context["answer_context"]
-
-    # Gen
-    @traceable(run_type="llm")
-    def generate_answer_bare(self):
-        self.response_bare = self.gen.overall_bare_chain({"query": self.query})
-        self.answer_bare = self.response_bare["answer_bare"]
-
-    # retrieve
     def get_context(self):
         texts = []
         self.chunk_uuids = []
         self.chunk_titles = []
-        print(f"self.response_count_ {self.response_count_}")
-        # print(f"self.response {self.response}")
-        print(f"len self.response {len(self.response.objects)}")
+
         if len(self.response.objects) == 0:
             st.write("no relevant document found")
             self.context = ""
@@ -207,6 +206,12 @@ class Retrieve(object):
             self.context = "\n".join(texts)
             self.chunk_texts = texts
 
+    def generate_answer_with_context(self):
+        self.answer_with_context = self.gen.generate_answer_with_context(self.context, self.query)
+
+    def generate_answer_bare(self):
+        self.answer_bare = self.gen.generate_answer_bare(self.query)
+
     # export
     def format_metadata(self, i):
         metadata_str = []
@@ -214,6 +219,7 @@ class Retrieve(object):
             metadata_str = f"**score**: {np.round(self.response.objects[i].metadata.score, 4)} "
         elif self.search_type == "near_text":
             metadata_str = f"distance: {np.round(self.response.objects[i].metadata.distance, 4)} certainty: {np.round(self.response.objects[i].metadata.certainty, 4)} "
+        st.caption(metadata_str)
 
     # export
     def retrieved_title(self, i):
