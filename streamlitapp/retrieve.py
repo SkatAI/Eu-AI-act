@@ -31,9 +31,10 @@ from google_storage import StorageWrap
 
 from sqlalchemy import text as sqlalchemy_text
 
+
 class Prompts(object):
     prompt_generative_context = ChatPromptTemplate.from_template(
-            """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
+        """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
 Your goal is to make it easier for people to understand the AI-Act from the UE.
 
 You are given a query and context information.
@@ -49,10 +50,10 @@ Your specific task is to answer the query based on the context information.
 {context}
 --- Query:
 {query}"""
-        )
+    )
 
     prompt_generative_bare = ChatPromptTemplate.from_template(
-            """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
+        """You are a journalist from Euractiv who is an expert on both Artifical Intelligence, the AI-act regulation from the European Union and European policy making.
 Your goal is to make it easier for people to understand the AI-Act from the UE.
 
 # make sure to:
@@ -63,14 +64,14 @@ Your goal is to make it easier for people to understand the AI-Act from the UE.
 
 --- Query:
 {query}"""
-        )
+    )
 
 
 class Generate(object):
-    def __init__(self, model, temperature:float = 0.0 ) -> None:
+    def __init__(self, model, temperature: float = 0.0) -> None:
         self.model = model
         self.temperature = temperature
-        llm = ChatOpenAI(model=model, temperature =temperature)
+        llm = ChatOpenAI(model=model, temperature=temperature)
         context_chain = LLMChain(
             llm=llm,
             prompt=Prompts.prompt_generative_context,
@@ -110,9 +111,7 @@ class Generate(object):
         return response_bare["answer_bare"]
 
 
-
 class Retrieve(object):
-
     def __init__(self, query, search_params):
         self.authors = {
             "all versions": None,
@@ -121,12 +120,12 @@ class Retrieve(object):
             "2022 council": "council",
             "2021 commission": "commission",
             "ECR": "ECR",
-            "EPP":"EPP",
-            "GUE/NGL":"GUE/NGL",
+            "EPP": "EPP",
+            "GUE/NGL": "GUE/NGL",
             "Greens/EFA": "Greens/EFA",
-            "ID":"ID",
-            "Renew":"Renew",
-            "S&D":"S&D",
+            "ID": "ID",
+            "Renew": "Renew",
+            "S&D": "S&D",
         }
         self.collection_name = "AIAct_240220"
         cluster_location = "cloud"
@@ -161,18 +160,18 @@ class Retrieve(object):
             else:
                 filters = filters & Filter("author").equal(self.author)
 
-        section_filters = [key for key, val in self.sections.items() if val ]
+        section_filters = [key for key, val in self.sections.items() if val]
         self.filters = filters & Filter("section").contains_any(section_filters)
 
     # retrieve
     def search(self):
         if self.search_type == "hybrid":
             self.response = self.collection.query.hybrid(
-                query = self.query,
-                query_properties = ["title","author","text"],
-                filters = self.filters,
-                limit = self.response_count_,
-                return_metadata = ["score", "explain_score", "is_consistent"],
+                query=self.query,
+                query_properties=["title", "author", "text"],
+                filters=self.filters,
+                limit=self.response_count_,
+                return_metadata=["score", "explain_score", "is_consistent"],
             )
         elif self.search_type == "near_text":
             self.response = self.collection.query.near_text(

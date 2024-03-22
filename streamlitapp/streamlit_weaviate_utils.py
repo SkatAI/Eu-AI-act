@@ -6,8 +6,10 @@ import numpy as np
 import weaviate
 import weaviate.classes as wvc
 
+
 def count_collection(collection):
     return collection.aggregate.over_all(total_count=True).total_count
+
 
 def list_collections(client):
     for collection_name in client.collections.list_all().keys():
@@ -18,6 +20,7 @@ def list_collections(client):
         collection = client.collections.get(collection_name)
         count_ = collection.aggregate.over_all(total_count=True).total_count
         print(f"* {collection_name} [{count_}]: \n\t {props}")
+
 
 def which_text_splitter(cfg):
     # ------------------------------------
@@ -44,7 +47,9 @@ def which_text_splitter(cfg):
         from transformers import GPT2TokenizerFast
 
         tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-        text_splitter = CharacterTextSplitter.from_huggingface_tokenizer(tokenizer, chunk_size=500, chunk_overlap=50)
+        text_splitter = CharacterTextSplitter.from_huggingface_tokenizer(
+            tokenizer, chunk_size=500, chunk_overlap=50
+        )
     return text_splitter
 
 
@@ -86,7 +91,9 @@ def connect_client(location="local"):
     return client
 
 
-def create_collection(client, collection_name, vectorizer, properties, replace=True, stopwords=None):
+def create_collection(
+    client, collection_name, vectorizer, properties, replace=True, stopwords=None
+):
     # create collection
     if client.collections.exists(collection_name):
         print("-- collection exists ")

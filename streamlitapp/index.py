@@ -44,9 +44,7 @@ if __name__ == "__main__":
     # "JURI",
     # "TRAN",
     # author_options = ["all versions", "2024 coreper", "2022 council", "2021 commission"]
-    author_options_docs = [
-        "all documents",
-        "2024 coreper", "2022 council", "2021 commission"]
+    author_options_docs = ["all documents", "2024 coreper", "2022 council", "2021 commission"]
 
     author_options_amendments = [
         "all amendments",
@@ -58,7 +56,7 @@ if __name__ == "__main__":
         "Renew",
         "S&D",
     ]
-    includes = {'recitals': True, 'articles': True, 'annex': True, 'amendments': False}
+    includes = {"recitals": True, "articles": True, "annex": True, "amendments": False}
     search_params = {
         "model": model_options[0],
         "author": author_options_docs[1],
@@ -71,48 +69,57 @@ if __name__ == "__main__":
     with st.sidebar:
         st.header(":orange[EU AI-Act Explorer]")
 
-
         # sections to include
 
-        includes['recitals'] = st.checkbox(
-            'Recitals',
-            value = includes['recitals'] if st.session_state.get(f"key_incl_recitals") is None else st.session_state.get(f"key_incl_recitals"),
-            key="key_incl_recitals"
+        includes["recitals"] = st.checkbox(
+            "Recitals",
+            value=includes["recitals"]
+            if st.session_state.get(f"key_incl_recitals") is None
+            else st.session_state.get(f"key_incl_recitals"),
+            key="key_incl_recitals",
         )
-        includes['articles'] = st.checkbox(
-            'Regulation',
-            value =  includes['articles'] if st.session_state.get(f"key_incl_articles") is None else st.session_state.get(f"key_incl_articles"),
-            key="key_incl_articles"
+        includes["articles"] = st.checkbox(
+            "Regulation",
+            value=includes["articles"]
+            if st.session_state.get(f"key_incl_articles") is None
+            else st.session_state.get(f"key_incl_articles"),
+            key="key_incl_articles",
         )
-        includes['annex'] = st.checkbox(
-            'annexes'.capitalize(),
-            value =  includes['annex'] if st.session_state.get(f"key_incl_annex") is None else st.session_state.get(f"key_incl_annex"),
-            key="key_incl_annex"
+        includes["annex"] = st.checkbox(
+            "annexes".capitalize(),
+            value=includes["annex"]
+            if st.session_state.get(f"key_incl_annex") is None
+            else st.session_state.get(f"key_incl_annex"),
+            key="key_incl_annex",
         )
-        includes['amendments'] = st.checkbox(
-            'amendments'.capitalize(),
-            value =  includes['amendments'] if st.session_state.get(f"key_incl_amendments") is None else st.session_state.get(f"key_incl_amendments"),
-            key="key_incl_amendments"
+        includes["amendments"] = st.checkbox(
+            "amendments".capitalize(),
+            value=includes["amendments"]
+            if st.session_state.get(f"key_incl_amendments") is None
+            else st.session_state.get(f"key_incl_amendments"),
+            key="key_incl_amendments",
         )
         search_params.update({"includes": includes})
 
         # author
-        if (includes['recitals'] | includes['articles'] | includes['annex'] ) & includes['amendments']:
-            index=1
+        if (includes["recitals"] | includes["articles"] | includes["annex"]) & includes[
+            "amendments"
+        ]:
+            index = 1
             author_options = author_options_docs + author_options_amendments
-        elif includes['amendments']  :
-            index=0
+        elif includes["amendments"]:
+            index = 0
             author_options = author_options_amendments
-        elif  (includes['recitals'] | includes['articles'] | includes['annex'] ) :
-            index=1
+        elif includes["recitals"] | includes["articles"] | includes["annex"]:
+            index = 1
             author_options = author_options_docs
         else:
             author_options = None
 
         if author_options is not None:
-            if (st.session_state.get("author_key") is not None):
+            if st.session_state.get("author_key") is not None:
                 if st.session_state.get("author_key") in author_options:
-                    index=  author_options.index(st.session_state.get("author_key"))
+                    index = author_options.index(st.session_state.get("author_key"))
 
             author = st.selectbox(
                 "Authored by",
@@ -241,7 +248,7 @@ if __name__ == "__main__":
                 retr.format_metadata(i)
 
         retr.log_session()
-        conn = st.connection("postgresql", type="sql")
-        retr.to_db(conn)
+        # conn = st.connection("postgresql", type="sql")
+        # retr.to_db(conn)
 
-        retr.client_close()
+        # retr.client_close()
